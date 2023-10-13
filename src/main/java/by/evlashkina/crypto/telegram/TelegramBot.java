@@ -8,7 +8,6 @@ import by.evlashkina.crypto.service.UserService;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -17,7 +16,6 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -25,7 +23,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class TelegramBot extends TelegramLongPollingBot {
 
-    private final static int DELAY_FOR_UPDATE = 3000;
+    private final static int DELAY_FOR_UPDATE = 10000;
 
     private final BotProperties properties;
     private final UserService userService;
@@ -53,24 +51,24 @@ public class TelegramBot extends TelegramLongPollingBot {
             userService.registerNewUser(chatId, userName);
             sendNotificationToUser(chatId, "Hi, " + userName + "! You were successfully registered");
             currencyService.requestPriceUpdate();
-            log.info("Chat id {}, ", chatId);
-
         } catch (UserException ex) {
             sendNotificationToUser(chatId, "TelegramBot is unavailable right now");
             log.info("TelegramBot is unavailable right now");
         }
     }
 
-    @Scheduled(fixedDelay = 3000)
+    @Scheduled(fixedDelay = DELAY_FOR_UPDATE)
     public void sendUpdatedCurrencyPricesToUsers() {
-        log.info("start pulling currency update");
+
         List<CurrencyDetails> updatedCurrencyDetails = currencyService.requestPriceUpdate();
-        Optional.ofNullable(updatedCurrencyDetails).ifPresent(this::notifyAllUsers);
+        if (!updatedCurrencyDetails.isEmpty()) {
+            notifyAllUsers(updatedCurrencyDetails);
+        }
     }
 
     public void notifyAllUsers(List<CurrencyDetails> updatedCurrencyDetails) {
-        log.info(updatedCurrencyDetails.toString());
-        Optional.ofNullable(userService.findAllUsers())
+
+        Optional.of(userService.findAllUsers())
                 .ifPresent(users -> users
                         .forEach(user -> sendNotificationToUser(user.getChatId(), updatedCurrencyDetails.toString())));
     }

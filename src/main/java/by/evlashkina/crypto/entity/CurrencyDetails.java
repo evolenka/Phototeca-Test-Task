@@ -4,18 +4,13 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Builder
 @Getter
+@EqualsAndHashCode
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 @Table(name = "currencies")
 public class CurrencyDetails {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "currencies_id")
-    private Long id;
-
     @Column(name = "currency", nullable = false)
     String symbol;
 

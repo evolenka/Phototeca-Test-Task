@@ -2,18 +2,20 @@ package by.evlashkina.crypto.service;
 
 import by.evlashkina.crypto.entity.CurrencyDetails;
 import by.evlashkina.crypto.repository.CurrencyRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +23,8 @@ import java.util.Optional;
 public class CurrencyServiceImpl implements CurrencyService {
 
     private final static String BASE_URL = "https://api.mexc.com/api/v3/ticker/price";
+    @Value("${bot.minPriceUpdatePercent}")
+    private double minPriceUpdatePercent;
     private final RestTemplate restTemplate = new RestTemplate();
     private final CurrencyRepository currencyRepository;
 
@@ -46,7 +50,7 @@ public class CurrencyServiceImpl implements CurrencyService {
                 }
         ).getBody();
 
-        log.info("newCurrencyPrices {}",newCurrencyPrices);
+        log.info("newCurrencyPrices {}", newCurrencyPrices);
 
         List<CurrencyDetails> currentCurrencyPrices = currencyRepository.findAll();
 
@@ -55,16 +59,26 @@ public class CurrencyServiceImpl implements CurrencyService {
             log.info("currency prices have been saved");
             return List.of();
         } else {
-            return getChangedCurrencyPrices(newCurrencyPrices, currentCurrencyPrices);
+            List<CurrencyDetails> updatedCurrencyDetails = getChangedCurrencyPrices(
+                    Optional.ofNullable(newCurrencyPrices)
+                            .orElseGet(() -> currentCurrencyPrices),
+                    currentCurrencyPrices);
+            Optional.of(updatedCurrencyDetails).ifPresent(currencyRepository::saveAll);
+            return updatedCurrencyDetails;
         }
     }
 
     public List<CurrencyDetails> getChangedCurrencyPrices
             (List<CurrencyDetails> newCurrencyPrices, List<CurrencyDetails> currentCurrencyPrices) {
-        //List <CurrencyDetails> changedCurrencyPrices=
-       // newCurrencyPrices.stream().forEach(c->get);
-        log.info("currency prices have been updated {}", newCurrencyPrices );
 
-        return newCurrencyPrices;
+        return Stream
+                .concat(newCurrencyPrices.stream(), currentCurrencyPrices.stream())
+                .collect(Collectors.toMap(CurrencyDetails::getSymbol, Function.identity(), (o1, o2) -> {
+                    if (Objects.equals(o1.getSymbol(), o2.getSymbol())
+                            && (Math.abs(o1.getPrice() - o2.getPrice()) / o2.getPrice()) * 100 > minPriceUpdatePercent) {
+                        return o1;
+                    }
+                    return null;
+                })).values().stream().toList();
     }
 }
