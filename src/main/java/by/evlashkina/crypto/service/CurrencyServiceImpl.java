@@ -23,6 +23,7 @@ import java.util.stream.Stream;
 public class CurrencyServiceImpl implements CurrencyService {
 
     private final static String BASE_URL = "https://api.mexc.com/api/v3/ticker/price";
+
     @Value("${bot.minPriceUpdatePercent}")
     private double minPriceUpdatePercent;
 
@@ -42,7 +43,6 @@ public class CurrencyServiceImpl implements CurrencyService {
                 }
         ).getBody();
 
-        log.info("newCurrencyPrices {}", newCurrencyPrices);
 
         List<CurrencyDetails> currentCurrencyPrices = currencyRepository.findAll();
 
@@ -65,10 +65,10 @@ public class CurrencyServiceImpl implements CurrencyService {
 
         return Stream
                 .concat(newCurrencyPrices.stream(), currentCurrencyPrices.stream())
-                .collect(Collectors.toMap(CurrencyDetails::getSymbol, Function.identity(), (o1, o2) -> {
-                    if (Objects.equals(o1.getSymbol(), o2.getSymbol())
-                            && (Math.abs(o1.getPrice() - o2.getPrice()) / o2.getPrice()) * 100 > minPriceUpdatePercent) {
-                        return o1;
+                .collect(Collectors.toMap(CurrencyDetails::getSymbol, Function.identity(), (newCurrencyDetail, currentPrices) -> {
+                    if (Objects.equals(newCurrencyDetail.getSymbol(), currentPrices.getSymbol())
+                            && (Math.abs(newCurrencyDetail.getPrice() - currentPrices.getPrice()) / currentPrices.getPrice()) * 100 > minPriceUpdatePercent) {
+                        return newCurrencyDetail;
                     }
                     return null;
                 })).values().stream().toList();
