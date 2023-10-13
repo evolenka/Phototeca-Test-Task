@@ -25,18 +25,10 @@ public class CurrencyServiceImpl implements CurrencyService {
     private final static String BASE_URL = "https://api.mexc.com/api/v3/ticker/price";
     @Value("${bot.minPriceUpdatePercent}")
     private double minPriceUpdatePercent;
+
     private final RestTemplate restTemplate = new RestTemplate();
     private final CurrencyRepository currencyRepository;
 
-
-    List<CurrencyDetails> response
-            = restTemplate.exchange(
-            BASE_URL,
-            HttpMethod.GET,
-            null,
-            new ParameterizedTypeReference<List<CurrencyDetails>>() {
-            }
-    ).getBody();
 
     @Override
     public List<CurrencyDetails> requestPriceUpdate() {
